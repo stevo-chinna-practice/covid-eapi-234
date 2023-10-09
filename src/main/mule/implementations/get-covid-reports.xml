@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+    <flow name="get:\reports:covid-eapi-config" doc:id="2e663fa1-eabe-4058-ba27-5debca6c8972">
+        <ee:transform doc:name="Set Variables" doc:id="8dad6dca-f3d9-4f85-8b31-b44417ec7ab4" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="state" ><![CDATA[attributes.queryParams.state default ""]]></ee:set-variable>
+				<ee:set-variable variableName="acceptType" ><![CDATA[attributes.headers.Accept]]></ee:set-variable>
+				<ee:set-variable variableName="correlationId" ><![CDATA[attributes.headers.'x-correlation-id' default ""]]></ee:set-variable>
+				<ee:set-variable variableName="uhubHeaderParameters" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"client_id": Mule::p('ehub.sapi.client_id'),
+	"client_secret": Mule::p('ehub.sapi.client_secret'),
+	"x-transaction-id": vars.transactionId,
+	"x-correlation-id": attributes.headers.'x-correlation-id' default ""
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Start Log" doc:id="46b9338a-541d-4742-a2d9-ecc89c9fccda" message='transactionId: #[vars.transactionId]], correlationId: #[vars.correlationId], message: "Started get reports flow and received query parameter is - #[attributes.queryParams.state]"'/>
+		<flow-ref doc:name="get-covid-case-reports-by-state" doc:id="713cf8ce-c40a-4924-b0da-072df1bbe58b" name="get-covid-case-reports-by-state"/>
+		<choice doc:name="Choice" doc:id="95343e1a-ece2-4e28-bb15-f9370bd4744e" >
+			<when expression='#[vars.acceptType == "application/xml"]'>
+				<ee:transform doc:name="Set XML Response" doc:id="cb475828-e076-496a-ab46-a3611077e4f1" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+---
+{
+	reports: payload map {
+		"state": $.state,
+		"report": {
+			"total": $.reports.total default 0,
+			"positive": $.reports.positive default 0,
+			"recovered": $.reports.recovered default 0,
+			"death": $.reports.death default 0,
+			"vaccinated": $.reports.vaccinated default 0
+		}
+	}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Set JSON Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	reports: payload map {
+		"state": $.state,
+		"report": {
+			"total": $.reports.total default 0,
+			"positive": $.reports.positive default 0,
+			"recovered": $.reports.recovered default 0,
+			"death": $.reports.death default 0,
+			"vaccinated": $.reports.vaccinated default 0
+		}
+	}
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="End Log" doc:id="f2fb2c47-4e85-497d-b538-808fca8830b1" message="transactionID: #[vars.transactionId]], correlationID: #[vars.correlationId], message: Completed get reports flow, payload: #[payload]"/>
+    
+</flow>	
+	
+	</mule>
